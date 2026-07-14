@@ -109,6 +109,38 @@ music-appreciation-dashboard/
 
 ---
 
+## 패들렛 연동
+
+[Padlet](https://padlet.com/)에 모인 학생 감상평을 **링크로 불러와 CSV로 변환**한 뒤, 곧바로 감정·음악 요소 분석까지 이어갈 수 있습니다.
+
+### 워크플로
+
+```
+Padlet 보드 URL
+    → board_id 추출
+    → Padlet Public API로 포스트 수집  (또는 데모 샘플)
+    → Padlet Export와 같은 CSV 형식
+    → 감정 레이더 · 워드클라우드 분석
+```
+
+### CSV 양식 (Padlet Export 호환)
+
+`Created At, Author, Subject, Body, Section, Attachment`
+
+샘플: [`sample_data/padlet_export_sample.csv`](sample_data/padlet_export_sample.csv)  
+또는 대시보드에서 [샘플 다운로드](/api/padlet/sample.csv)
+
+### 사용 방법
+
+1. 대시보드 **패들렛 링크** 탭 선택  
+2. 실제 보드: Padlet [Public API](https://padlet.help/l/en/article/3933026qoo-api-public) 키 입력 후 URL 붙여넣기 → **CSV로 변환** → **변환 후 분석**  
+3. API 키 없이: **데모 샘플로 체험** → 미리보기 → 분석  
+4. 대안: 패들렛 **Share → Export → CSV** 후 **CSV 업로드** 탭
+
+> 공식 Public API는 Padlet 유료 구독이 필요할 수 있습니다. 교실에서는 Export CSV 업로드도 동일하게 동작합니다.
+
+---
+
 ## 실행 방법
 
 ### 요구 사항

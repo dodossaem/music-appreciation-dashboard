@@ -27,6 +27,44 @@ body {
   line-height: 1.6;
 }
 
+a,
+a:link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:visited {
+  color: #ffb347;
+}
+
+a:hover,
+a:focus {
+  color: #ffc46b;
+}
+
+a:active {
+  color: #ffe0a8;
+}
+
+.padlet-hint a,
+.hint a,
+.link-btn {
+  color: var(--accent);
+}
+
+.padlet-hint a:visited,
+.hint a:visited,
+.link-btn:visited {
+  color: #ffb347;
+}
+
+.padlet-hint a:hover,
+.hint a:hover,
+.link-btn:hover {
+  color: #ffc46b;
+}
+
 .bg-pattern {
   position: fixed;
   inset: 0;
@@ -169,6 +207,59 @@ body {
 .api-key-row input:focus {
   outline: none;
   border-color: var(--accent3);
+}
+
+.text-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent3);
+}
+
+.padlet-hint {
+  margin-bottom: 1rem;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.padlet-preview {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.padlet-preview.hidden {
+  display: none;
+}
+
+.preview-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.preview-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .icon-btn {

@@ -1,36 +1,53 @@
 let radarChart = null;
 let selectedFile = null;
+let padletCsvCache = "";
+let padletConverted = false;
 
 const STORAGE_KEY = "gemini_api_key";
+const PADLET_KEY = "padlet_api_key";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-// API 키 로컬 저장
 function loadApiKey() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) $("#apiKeyInput").value = saved;
+  const padlet = localStorage.getItem(PADLET_KEY);
+  if (padlet) $("#padletApiKey").value = padlet;
   updateStatus();
 }
 
 function saveApiKey() {
   const key = $("#apiKeyInput").value.trim();
-  if (key) {
-    localStorage.setItem(STORAGE_KEY, key);
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-  }
+  if (key) localStorage.setItem(STORAGE_KEY, key);
+  else localStorage.removeItem(STORAGE_KEY);
   updateStatus();
+}
+
+function savePadletKey() {
+  const key = $("#padletApiKey").value.trim();
+  if (key) localStorage.setItem(PADLET_KEY, key);
+  else localStorage.removeItem(PADLET_KEY);
 }
 
 function getApiKey() {
   return $("#apiKeyInput").value.trim();
 }
 
+function getPadletKey() {
+  return $("#padletApiKey").value.trim();
+}
+
 $("#apiKeyInput").addEventListener("input", saveApiKey);
+$("#padletApiKey").addEventListener("input", savePadletKey);
 
 $("#toggleKeyBtn").addEventListener("click", () => {
   const input = $("#apiKeyInput");
+  input.type = input.type === "password" ? "text" : "password";
+});
+
+$("#togglePadletKeyBtn").addEventListener("click", () => {
+  const input = $("#padletApiKey");
   input.type = input.type === "password" ? "text" : "password";
 });
 
@@ -40,7 +57,6 @@ $("#clearKeyBtn").addEventListener("click", () => {
   updateStatus();
 });
 
-// 탭 전환
 $$(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     $$(".tab").forEach((t) => t.classList.remove("active"));
@@ -81,7 +97,6 @@ async function checkHealth() {
   }
 }
 
-// 파일 드래그앤드롭
 const dropzone = $("#dropzone");
 const fileInput = $("#fileInput");
 
@@ -102,9 +117,7 @@ dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover
 dropzone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropzone.classList.remove("dragover");
-  if (e.dataTransfer.files.length) {
-    setFile(e.dataTransfer.files[0]);
-  }
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
 });
 
 fileInput.addEventListener("change", () => {
@@ -132,8 +145,10 @@ function hideError() {
   $("#errorBanner").classList.add("hidden");
 }
 
-function showLoading(show) {
+function showLoading(show, message) {
   $("#loading").classList.toggle("hidden", !show);
+  if (message) $("#loading p").textContent = message;
+  else $("#loading p").textContent = "감상평을 분석하고 있어요…";
 }
 
 function rankList(obj) {
@@ -153,6 +168,105 @@ function appendAnalysisOptions(form) {
   form.append("gemini_api_key", getApiKey());
 }
 
+function showPadletPreview(data) {
+  padletCsvCache = data.csv || "";
+  padletConverted = true;
+  $("#analyzePadletBtn").disabled = false;
+  const box = $("#padletPreview");
+  box.classList.remove("hidden");
+  $("#padletPreviewTitle").textContent = data.title || "변환 완료";
+  const src = data.source === "demo" ? "데모 샘플" : "Padlet API";
+  $("#padletPreviewMeta").textContent = `${src} · ${data.total_posts}개 게시글 · id ${data.board_id}`;
+  $("#padletPreviewList").innerHTML = (data.preview || [])
+    .map((t) => `<li>${t}</li>`)
+    .join("") || "<li>미리보기 없음</li>";
+}
+
+$("#downloadPadletCsv").addEventListener("click", () => {
+  if (!padletCsvCache) return;
+  const blob = new Blob([padletCsvCache], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "padlet_converted.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+async function convertPadlet(useDemo) {
+  hideError();
+  showLoading(true, useDemo ? "데모 CSV를 준비하고 있어요…" : "패들렛을 CSV로 변환 중…");
+
+  const form = new FormData();
+  form.append("url", useDemo ? "demo" : $("#padletUrl").value.trim() || "demo");
+  form.append("padlet_api_key", getPadletKey());
+  form.append("use_demo", useDemo ? "true" : "false");
+
+  try {
+    const res = await fetch("/api/padlet/convert", { method: "POST", body: form });
+    const data = await res.json();
+    if (!data.ok) {
+      showError(data.error || "변환에 실패했습니다.");
+      $("#analyzePadletBtn").disabled = true;
+      $("#padletPreview").classList.add("hidden");
+      return;
+    }
+    showPadletPreview(data);
+  } catch (e) {
+    showError("변환 중 오류: " + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function analyzePadlet() {
+  hideError();
+  showLoading(true, "패들렛 → CSV → 분석 진행 중…");
+
+  const useDemo =
+    padletConverted &&
+    (!$("#padletUrl").value.trim() ||
+      $("#padletPreviewMeta").textContent.includes("데모"));
+
+  const form = new FormData();
+  const url = $("#padletUrl").value.trim();
+  form.append("url", useDemo && !getPadletKey() ? "demo" : url || "demo");
+  form.append("padlet_api_key", getPadletKey());
+  form.append(
+    "use_demo",
+    (!url && !getPadletKey()) || $("#padletPreviewMeta").textContent.includes("데모")
+      ? "true"
+      : "false"
+  );
+  appendAnalysisOptions(form);
+
+  try {
+    const res = await fetch("/api/analyze-padlet", { method: "POST", body: form });
+    const data = await res.json();
+    if (data.error) {
+      showError(data.error);
+      return;
+    }
+    if (data.csv) padletCsvCache = data.csv;
+    renderDashboard(data);
+  } catch (e) {
+    showError("분석 중 오류: " + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+$("#convertPadletBtn").addEventListener("click", () => {
+  const url = $("#padletUrl").value.trim();
+  if (!url && !getPadletKey()) {
+    showError("패들렛 URL을 입력하거나 '데모 샘플로 체험'을 눌러 주세요.");
+    return;
+  }
+  convertPadlet(false);
+});
+
+$("#demoPadletBtn").addEventListener("click", () => convertPadlet(true));
+$("#analyzePadletBtn").addEventListener("click", analyzePadlet);
+
 function renderDashboard(data) {
   hideError();
   $("#uploadSection").classList.add("hidden");
@@ -162,8 +276,16 @@ function renderDashboard(data) {
   $("#insightText").textContent =
     summary.insight ||
     `우리 반은 이 곡의 '${summary.top_musical || "—"}'과 '${summary.top_emotion || "—"}'에 가장 집중했어요!`;
-  $("#reviewCount").textContent = `총 ${data.total_reviews}개 감상평`;
-  $("#analysisMethod").textContent = methodLabel(data.method);
+
+  let countLabel = `총 ${data.total_reviews}개 감상평`;
+  if (data.padlet_title) countLabel += ` · ${data.padlet_title}`;
+  $("#reviewCount").textContent = countLabel;
+
+  let method = methodLabel(data.method);
+  if (data.padlet_source) {
+    method += data.padlet_source === "demo" ? " · Padlet 데모" : " · Padlet 링크";
+  }
+  $("#analysisMethod").textContent = method;
 
   const radar = data.radar;
   if (radarChart) radarChart.destroy();
@@ -215,8 +337,7 @@ function renderDashboard(data) {
     },
   });
 
-  const legend = $("#emotionLegend");
-  legend.innerHTML = rankList(data.emotions)
+  $("#emotionLegend").innerHTML = rankList(data.emotions)
     .map(([k, v]) => `<span class="legend-item">${k} ${v}</span>`)
     .join("");
 
@@ -242,31 +363,27 @@ function renderDashboard(data) {
     wcEl.innerHTML = '<p style="color:#a7a9be">음악 요소 키워드가 없습니다</p>';
   }
 
-  const emotionRank = $("#emotionRank");
-  emotionRank.innerHTML = rankList(data.emotions)
-    .map(([k, v], i) => `<li><span>${i + 1}. ${k}</span><span class="count">${v}</span></li>`)
-    .join("") || "<li>데이터 없음</li>";
+  $("#emotionRank").innerHTML =
+    rankList(data.emotions)
+      .map(([k, v], i) => `<li><span>${i + 1}. ${k}</span><span class="count">${v}</span></li>`)
+      .join("") || "<li>데이터 없음</li>";
 
-  const musicalRank = $("#musicalRank");
-  musicalRank.innerHTML = rankList(data.musical_elements)
-    .map(([k, v], i) => `<li><span>${i + 1}. ${k}</span><span class="count">${v}</span></li>`)
-    .join("") || "<li>데이터 없음</li>";
+  $("#musicalRank").innerHTML =
+    rankList(data.musical_elements)
+      .map(([k, v], i) => `<li><span>${i + 1}. ${k}</span><span class="count">${v}</span></li>`)
+      .join("") || "<li>데이터 없음</li>";
 
-  const sampleReviews = $("#sampleReviews");
-  sampleReviews.innerHTML = (data.sample_reviews || [])
-    .map((t) => `<li>${t}</li>`)
-    .join("") || "<li>—</li>";
+  $("#sampleReviews").innerHTML =
+    (data.sample_reviews || []).map((t) => `<li>${t}</li>`).join("") || "<li>—</li>";
 }
 
 async function analyzeCsv() {
   if (!selectedFile) return;
   hideError();
   showLoading(true);
-
   const form = new FormData();
   form.append("file", selectedFile);
   appendAnalysisOptions(form);
-
   try {
     const res = await fetch("/api/analyze", { method: "POST", body: form });
     const data = await res.json();
@@ -290,11 +407,9 @@ async function analyzeText() {
   }
   hideError();
   showLoading(true);
-
   const form = new FormData();
   form.append("texts", text);
   appendAnalysisOptions(form);
-
   try {
     const res = await fetch("/api/analyze-text", { method: "POST", body: form });
     const data = await res.json();
@@ -319,10 +434,13 @@ $("#resetBtn").addEventListener("click", () => {
   selectedFile = null;
   fileInput.value = "";
   $("#analyzeBtn").disabled = true;
+  padletConverted = false;
+  $("#analyzePadletBtn").disabled = true;
+  $("#padletPreview").classList.add("hidden");
   dropzone.querySelector(".dropzone-content").innerHTML = `
     <span class="dropzone-icon">📂</span>
     <p>CSV 파일을 여기에 끌어다 놓거나 <button type="button" class="link-btn" id="browseBtn">파일 선택</button></p>
-    <p class="hint">열 이름에 '감상', '내용', '답변' 등이 있으면 자동 인식합니다</p>
+    <p class="hint">Google Forms · Padlet Export(Body/Subject) CSV 자동 인식</p>
   `;
   $("#browseBtn").addEventListener("click", (e) => {
     e.stopPropagation();

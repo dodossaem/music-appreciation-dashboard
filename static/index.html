@@ -34,7 +34,7 @@
     <!-- 업로드 섹션 -->
     <section class="upload-section card" id="uploadSection">
       <h2>감상평 데이터 불러오기</h2>
-      <p class="section-desc">구글 폼·패들렛에서보낸 CSV 파일을 업로드하거나, 감상평을 직접 입력하세요.</p>
+      <p class="section-desc">패들렛 링크 · CSV · 직접 입력으로 학급 감상평을 불러와 바로 분석하세요.</p>
 
       <div class="api-key-section">
         <label class="field-label" for="apiKeyInput">Gemini API 키</label>
@@ -53,17 +53,53 @@
       </div>
 
       <div class="tabs">
-        <button class="tab active" data-tab="csv">CSV 업로드</button>
+        <button class="tab active" data-tab="padlet">패들렛 링크</button>
+        <button class="tab" data-tab="csv">CSV 업로드</button>
         <button class="tab" data-tab="text">직접 입력</button>
       </div>
 
-      <div class="tab-panel active" id="panel-csv">
+      <div class="tab-panel active" id="panel-padlet">
+        <label class="field-label" for="padletUrl">Padlet 보드 URL</label>
+        <input type="url" id="padletUrl" class="text-input" placeholder="https://padlet.com/username/음악감상-abcd1234efgh5678" />
+        <p class="hint padlet-hint">
+          <a href="https://padlet.com/" target="_blank" rel="noopener">Padlet</a>에서 보드 공유 링크를 붙여넣으세요.
+          board_id는 URL 끝 16자입니다.
+          · <a href="/api/padlet/sample.csv">Export 형식 샘플 CSV</a>
+        </p>
+
+        <label class="field-label" for="padletApiKey">Padlet API 키 <small>(선택 · 실제 링크 변환 시)</small></label>
+        <div class="api-key-row">
+          <input type="password" id="padletApiKey" placeholder="Padlet Developer API key" autocomplete="off" />
+          <button type="button" class="icon-btn" id="togglePadletKeyBtn" title="키 표시/숨기기">👁</button>
+        </div>
+        <p class="hint">
+          <a href="https://padlet.help/l/en/article/3933026qoo-api-public" target="_blank" rel="noopener">Padlet Public API</a>
+          (유료 구독) · Settings → Developer · 없으면 아래 데모로 전체 흐름 체험
+        </p>
+
+        <div class="btn-row">
+          <button type="button" class="btn secondary" id="convertPadletBtn">CSV로 변환</button>
+          <button type="button" class="btn secondary" id="demoPadletBtn">데모 샘플로 체험</button>
+          <button type="button" class="btn primary" id="analyzePadletBtn" disabled>변환 후 분석</button>
+        </div>
+
+        <div class="padlet-preview hidden" id="padletPreview">
+          <div class="preview-header">
+            <strong id="padletPreviewTitle">변환 완료</strong>
+            <span class="preview-meta" id="padletPreviewMeta"></span>
+          </div>
+          <ul id="padletPreviewList" class="sample-list"></ul>
+          <button type="button" class="link-btn" id="downloadPadletCsv">변환된 CSV 다운로드</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-csv">
         <div class="dropzone" id="dropzone">
           <input type="file" id="fileInput" accept=".csv,.txt" hidden />
           <div class="dropzone-content">
             <span class="dropzone-icon">📂</span>
             <p>CSV 파일을 여기에 끌어다 놓거나 <button type="button" class="link-btn" id="browseBtn">파일 선택</button></p>
-            <p class="hint">열 이름에 '감상', '내용', '답변' 등이 있으면 자동 인식합니다</p>
+            <p class="hint">Google Forms · Padlet Export(Body/Subject) CSV 자동 인식</p>
           </div>
         </div>
         <button class="btn primary" id="analyzeBtn" disabled>분석 시작</button>
